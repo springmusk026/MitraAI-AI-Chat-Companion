@@ -3,11 +3,11 @@ package com.mitra.ai.xyz.presentation.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mitra.ai.xyz.domain.model.AiProviderProfile
+import com.mitra.ai.xyz.domain.model.AppSettings
+import com.mitra.ai.xyz.domain.repository.AppSettingsRepository
 import com.mitra.ai.xyz.domain.repository.SettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.util.*
 import javax.inject.Inject
@@ -16,12 +16,14 @@ data class SettingsState(
     val profiles: List<AiProviderProfile> = emptyList(),
     val isAddingProfile: Boolean = false,
     val isLoading: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val appSettings: AppSettings = AppSettings()
 )
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    private val settingsRepository: SettingsRepository
+    private val settingsRepository: SettingsRepository,
+    private val appSettingsRepository: AppSettingsRepository
 ) : ViewModel() {
 
     private val _settingsState = MutableStateFlow(SettingsState())
@@ -29,6 +31,7 @@ class SettingsViewModel @Inject constructor(
 
     init {
         loadProfiles()
+        loadAppSettings()
     }
 
     private fun loadProfiles() {
@@ -49,6 +52,15 @@ class SettingsViewModel @Inject constructor(
                     isLoading = false
                 )}
             }
+        }
+    }
+
+    private fun loadAppSettings() {
+        viewModelScope.launch {
+            appSettingsRepository.getSettings()
+                .collect { settings ->
+                    _settingsState.update { it.copy(appSettings = settings) }
+                }
         }
     }
 
@@ -175,5 +187,46 @@ class SettingsViewModel @Inject constructor(
 
     fun clearError() {
         _settingsState.update { it.copy(error = null) }
+    }
+
+    // New App Settings Functions
+    fun updateThemeMode(themeMode: AppSettings.ThemeMode) {
+        viewModelScope.launch {
+            try {
+                appSettingsRepository.updateSettings(
+                    _settingsState.value.appSettings.copy(themeMode = themeMode)
+                )
+            } catch (e: Exception) {
+                _settingsState.update { it.copy(
+                    error = "Failed to update theme mode: ${e.message}"
+                )}
+            }
+        }
+    }
+
+    fun updateFontScale(scale: Float) {
+        viewModelScope.launch {
+            try {
+                appSettingsRepository.updateSettings(
+                    _settingsState.value.appSettings.copy(fontScale = scale)
+                )
+            } catch (e: Exception) {
+                _settingsState.update { it.copy(
+                    error = "Failed to update font scale: ${e.message}"
+                )}
+            }
+        }
+    }
+
+    fun resetAppSettings() {
+        viewModelScope.launch {
+            try {
+                appSettingsRepository.resetSettings()
+            } catch (e: Exception) {
+                _settingsState.update { it.copy(
+                    error = "Failed to reset settings: ${e.message}"
+                )}
+            }
+        }
     }
 } 

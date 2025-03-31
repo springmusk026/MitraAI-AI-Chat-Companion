@@ -22,16 +22,19 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.mitra.ai.xyz.domain.model.AiProviderProfile
+import com.mitra.ai.xyz.domain.model.AppSettings
 import org.burnoutcrew.reorderable.*
 import org.burnoutcrew.reorderable.ReorderableItem
 import org.burnoutcrew.reorderable.detectReorderAfterLongPress
 import org.burnoutcrew.reorderable.rememberReorderableLazyListState
+import com.mitra.ai.xyz.presentation.navigation.Screen
 
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun SettingsScreen(
     onNavigateBack: () -> Unit,
+    onNavigate: (String) -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val state by viewModel.settingsState.collectAsState()
@@ -40,8 +43,8 @@ fun SettingsScreen(
 
     val reorderState = rememberReorderableLazyListState(
         onMove = { from, to ->
-            val fromIndex = from.index - 1 // Subtract 1 to account for the header item
-            val toIndex = to.index - 1 // Subtract 1 to account for the header item
+            val fromIndex = from.index - 2 // Subtract 2 to account for the app settings section
+            val toIndex = to.index - 2
             
             if (fromIndex >= 0 && toIndex >= 0 && 
                 fromIndex < state.profiles.size && 
@@ -88,6 +91,47 @@ fun SettingsScreen(
                     .fillMaxSize()
                     .reorderable(reorderState)
             ) {
+                // App Settings Section
+                item {
+                    Text(
+                        text = "App Settings",
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.padding(16.dp)
+                    )
+                }
+
+                item {
+                    AppSettingsSection(
+                        settings = state.appSettings,
+                        onThemeModeChange = viewModel::updateThemeMode,
+                        onFontScaleChange = viewModel::updateFontScale,
+                        onReset = viewModel::resetAppSettings
+                    )
+                }
+
+                item {
+                    Divider(modifier = Modifier.padding(vertical = 8.dp))
+                }
+
+                // Backup & Restore
+                item {
+                    ListItem(
+                        headlineContent = { Text("Backup & Restore") },
+                        supportingContent = { Text("Export or import your app data") },
+                        leadingContent = {
+                            Icon(
+                                imageVector = Icons.Default.Backup,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        modifier = Modifier.clickable {
+                            onNavigate(Screen.Backup.route)
+                        }
+                    )
+                }
+
+                // Provider Profiles Section
                 item {
                     Text(
                         text = "OpenAI Compatible Providers",
@@ -484,4 +528,107 @@ private fun ProviderProfileDialog(
             }
         }
     )
+}
+
+@Composable
+private fun AppSettingsSection(
+    settings: AppSettings,
+    onThemeModeChange: (AppSettings.ThemeMode) -> Unit,
+    onFontScaleChange: (Float) -> Unit,
+    onReset: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Theme Mode
+            Column {
+                Text(
+                    text = "Theme Mode",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    AppSettings.ThemeMode.values().forEach { mode ->
+                        FilterChip(
+                            selected = settings.themeMode == mode,
+                            onClick = { onThemeModeChange(mode) },
+                            label = {
+                                Text(
+                                    when (mode) {
+                                        AppSettings.ThemeMode.LIGHT -> "Light"
+                                        AppSettings.ThemeMode.DARK -> "Dark"
+                                        AppSettings.ThemeMode.SYSTEM -> "System"
+                                    }
+                                )
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = when (mode) {
+                                        AppSettings.ThemeMode.LIGHT -> Icons.Default.LightMode
+                                        AppSettings.ThemeMode.DARK -> Icons.Default.DarkMode
+                                        AppSettings.ThemeMode.SYSTEM -> Icons.Default.SettingsSystemDaydream
+                                    },
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        )
+                    }
+                }
+            }
+
+            // Font Scale
+            Column {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Font Size",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "${(settings.fontScale * 100).toInt()}%",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Slider(
+                    value = settings.fontScale,
+                    onValueChange = onFontScaleChange,
+                    valueRange = 0.8f..1.4f,
+                    steps = 5,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+            }
+
+            // Reset Button
+            TextButton(
+                onClick = onReset,
+                modifier = Modifier.align(Alignment.End)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.RestartAlt,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("Reset to Defaults")
+            }
+        }
+    }
 }

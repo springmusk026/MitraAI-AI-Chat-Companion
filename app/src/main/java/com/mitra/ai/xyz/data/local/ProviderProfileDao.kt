@@ -31,4 +31,7 @@ interface ProviderProfileDao {
         // Insert all profiles with new order
         profiles.forEach { insertProfile(it) }
     }
+
+    @Query("DELETE FROM provider_profiles")
+    suspend fun deleteAll()
 } 

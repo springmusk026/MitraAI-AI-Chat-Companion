@@ -2,8 +2,10 @@ package com.mitra.ai.xyz.domain.model
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import kotlinx.serialization.Serializable
 
 @Entity(tableName = "provider_profiles")
+@Serializable
 data class AiProviderProfile(
     @PrimaryKey
     val id: String,

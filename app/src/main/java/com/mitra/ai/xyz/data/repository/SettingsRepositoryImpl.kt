@@ -10,6 +10,7 @@ import com.mitra.ai.xyz.data.local.ProviderProfileDao
 import com.mitra.ai.xyz.data.remote.OpenAIServiceFactory
 import com.mitra.ai.xyz.domain.model.AiProviderConfig
 import com.mitra.ai.xyz.domain.model.AiProviderProfile
+import com.mitra.ai.xyz.domain.model.AppSettings
 import com.mitra.ai.xyz.domain.repository.SettingsRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -27,34 +28,25 @@ class SettingsRepositoryImpl @Inject constructor(
     private val providerProfileDao: ProviderProfileDao
 ) : SettingsRepository {
 
-    private object PreferencesKeys {
-        val API_KEY = stringPreferencesKey("api_key")
-        val ACTIVE_PROVIDER = stringPreferencesKey("active_provider")
-        val BASE_URL = stringPreferencesKey("base_url")
-        val MODEL = stringPreferencesKey("model")
-    }
-
     override suspend fun getApiKey(): String {
-        return context.dataStore.data.map { preferences ->
-            preferences[PreferencesKeys.API_KEY] ?: ""
-        }.first()
+        return getActiveProfile()?.apiKey ?: ""
     }
 
     override suspend fun getActiveProviderOnce(): String {
-        return context.dataStore.data.map { preferences ->
-            preferences[PreferencesKeys.ACTIVE_PROVIDER] ?: "OPENAI"
-        }.first()
+        return getActiveProfile()?.name ?: "OPENAI"
     }
 
     override suspend fun setActiveProvider(provider: String) {
-        context.dataStore.edit { preferences ->
-            preferences[PreferencesKeys.ACTIVE_PROVIDER] = provider
+        withContext(Dispatchers.IO) {
+            providerProfileDao.getProviderProfiles().first().find { it.name == provider }?.let { profile ->
+                providerProfileDao.setActiveProfile(profile.id)
+            }
         }
     }
 
     override fun getActiveProviderFlow(): Flow<String> {
-        return context.dataStore.data.map { preferences ->
-            preferences[PreferencesKeys.ACTIVE_PROVIDER] ?: "OPENAI"
+        return providerProfileDao.getProviderProfiles().map { profiles ->
+            profiles.find { it.isActive }?.name ?: "OPENAI"
         }
     }
 
@@ -63,13 +55,27 @@ class SettingsRepositoryImpl @Inject constructor(
         baseUrl: String,
         model: String
     ) {
-        context.dataStore.edit { preferences ->
-            preferences[PreferencesKeys.API_KEY] = apiKey
-            if (baseUrl.isNotEmpty()) {
-                preferences[PreferencesKeys.BASE_URL] = baseUrl
-            }
-            if (model.isNotEmpty()) {
-                preferences[PreferencesKeys.MODEL] = model
+        withContext(Dispatchers.IO) {
+            val activeProfile = getActiveProfile()
+            if (activeProfile != null) {
+                val updatedProfile = activeProfile.copy(
+                    apiKey = apiKey,
+                    baseUrl = baseUrl.takeIf { it.isNotEmpty() } ?: activeProfile.baseUrl,
+                    model = model.takeIf { it.isNotEmpty() } ?: activeProfile.model
+                )
+                providerProfileDao.updateProfile(updatedProfile)
+            } else {
+                // Create new profile if none exists
+                val newProfile = AiProviderProfile(
+                    id = java.util.UUID.randomUUID().toString(),
+                    name = "OPENAI",
+                    apiKey = apiKey,
+                    baseUrl = baseUrl.takeIf { it.isNotEmpty() } ?: "https://api.openai.com/v1",
+                    model = model.takeIf { it.isNotEmpty() } ?: "gpt-3.5-turbo",
+                    isActive = true,
+                    order = 0
+                )
+                providerProfileDao.insertProfile(newProfile)
             }
         }
     }
@@ -83,11 +89,11 @@ class SettingsRepositoryImpl @Inject constructor(
                 model = activeProfile.model
             )
         } else {
-            val preferences = context.dataStore.data.first()
+            // Return default config if no active profile
             AiProviderConfig(
-                baseUrl = preferences[PreferencesKeys.BASE_URL] ?: "",
-                apiKey = preferences[PreferencesKeys.API_KEY] ?: "",
-                model = preferences[PreferencesKeys.MODEL] ?: ""
+                baseUrl = "https://api.openai.com/v1",
+                apiKey = "",
+                model = "gpt-3.5-turbo"
             )
         }
     }
@@ -139,5 +145,19 @@ class SettingsRepositoryImpl @Inject constructor(
         return withContext(Dispatchers.IO) {
             providerProfileDao.getActiveProfile()
         }
+    }
+
+    override suspend fun clearProviderProfiles() = withContext(Dispatchers.IO) {
+        providerProfileDao.deleteAll()
+    }
+
+    override fun getAppSettings(): Flow<AppSettings> = flow {
+        // For now, emit default settings
+        // TODO: Implement actual settings storage
+        emit(AppSettings())
+    }
+
+    override suspend fun updateAppSettings(settings: AppSettings) {
+        // TODO: Implement actual settings storage
     }
 } 

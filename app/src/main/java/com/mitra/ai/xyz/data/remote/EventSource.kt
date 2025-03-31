@@ -1,12 +1,11 @@
 package com.mitra.ai.xyz.data.remote
 
-import okhttp3.*
-import okio.IOException
-import okio.Buffer
-import java.util.concurrent.TimeUnit
-import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.awaitClose
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
+import okhttp3.*
+import okio.Buffer
+import java.io.IOException
 
 class EventSource private constructor(
     private val client: OkHttpClient,
@@ -15,104 +14,107 @@ class EventSource private constructor(
 ) {
     private var call: Call? = null
     private var isClosed = false
-    private val scope = CoroutineScope(Dispatchers.IO + Job())
 
     fun connect() {
-        if (isClosed) {
-            throw IllegalStateException("EventSource is closed")
-        }
-
-        scope.launch {
-            try {
-                val response = client.newCall(request).execute()
-                if (!response.isSuccessful) {
-                    listener.onFailure(IOException("Unexpected response code: ${response.code}"))
-                    return@launch
-                }
-
-                val source = response.body?.source() ?: run {
-                    listener.onFailure(IOException("Response body is null"))
-                    return@launch
-                }
-
-                val buffer = Buffer()
-                while (!isClosed) {
-                    val line = try {
-                        source.readUtf8Line()
-                    } catch (e: IOException) {
-                        if (!isClosed) {
-                            listener.onFailure(e)
-                        }
-                        break
-                    } ?: break // End of stream
-
-                    if (line.startsWith("data: ")) {
-                        val data = line.substring(6)
-                        if (data == "[DONE]") {
-                            listener.onComplete()
-                            break
-                        } else {
-                            listener.onEvent(data)
-                        }
+        if (isClosed) return
+        
+        call = client.newCall(request).apply {
+            enqueue(object : Callback {
+                override fun onFailure(call: Call, e: IOException) {
+                    if (!isClosed) {
+                        listener.onFailure(e)
                     }
                 }
 
-                response.close()
-            } catch (e: Exception) {
-                if (!isClosed) {
-                    listener.onFailure(e)
+                override fun onResponse(call: Call, response: Response) {
+                    if (!response.isSuccessful) {
+                        if (!isClosed) {
+                            listener.onFailure(IOException("Unexpected response: ${response.code}"))
+                        }
+                        return
+                    }
+
+                    response.body?.source()?.let { source ->
+                        val buffer = Buffer()
+                        var currentLine = StringBuilder()
+
+                        try {
+                            while (!isClosed) {
+                                // Read a single byte at a time to process immediately
+                                val byte = source.read(buffer, 1)
+                                if (byte == -1L) break // EOF
+
+                                val b = buffer.readByte()
+                                if (b == '\n'.code.toByte()) {
+                                    val line = currentLine.toString()
+                                    if (line.startsWith("data: ")) {
+                                        val data = line.substring(6)
+                                        if (data == "[DONE]") {
+                                            if (!isClosed) {
+                                                listener.onComplete()
+                                            }
+                                            return
+                                        }
+                                        if (!isClosed) {
+                                            listener.onEvent(data)
+                                        }
+                                    }
+                                    currentLine = StringBuilder()
+                                } else {
+                                    currentLine.append(b.toInt().toChar())
+                                }
+                            }
+                        } catch (e: IOException) {
+                            if (!isClosed) {
+                                listener.onFailure(e)
+                            }
+                        } finally {
+                            response.close()
+                        }
+                    }
                 }
-            }
+            })
         }
     }
 
     fun close() {
         isClosed = true
         call?.cancel()
-        scope.cancel()
     }
 
     companion object {
-        fun Builder(
+        fun create(
             client: OkHttpClient,
-            request: Request
-        ): Builder = Builder(client, request)
-    }
-
-    class Builder(
-        private val client: OkHttpClient,
-        private val request: Request
-    ) {
-        private var listener: EventSourceListener? = null
-
-        fun listener(listener: EventSourceListener): Builder {
-            this.listener = listener
-            return this
+            request: Request,
+            listener: EventSourceListener
+        ): EventSource {
+            return EventSource(client, request, listener)
         }
 
-        fun build(): EventSource {
-            if (listener == null) {
-                throw NullPointerException("EventSourceListener must not be null")
+        fun asFlow(
+            client: OkHttpClient,
+            request: Request
+        ): Flow<String> = callbackFlow {
+            val listener = object : EventSourceListener {
+                override fun onEvent(data: String) {
+                    trySend(data)
+                }
+
+                override fun onFailure(t: Throwable) {
+                    close(t)
+                }
+
+                override fun onComplete() {
+                    close()
+                }
             }
-            
-            // Configure client for SSE
-            val clientBuilder = client.newBuilder()
-                .readTimeout(0, TimeUnit.MILLISECONDS)
-                .writeTimeout(0, TimeUnit.MILLISECONDS)
-                .connectTimeout(30, TimeUnit.SECONDS)
-                .retryOnConnectionFailure(true)
 
-            // Ensure correct headers for SSE
-            val requestBuilder = request.newBuilder()
-                .header("Accept", "text/event-stream")
-                .header("Cache-Control", "no-cache")
-                .header("Connection", "keep-alive")
+            val eventSource = create(client, request, listener)
+            eventSource.connect()
 
-            return EventSource(
-                clientBuilder.build(),
-                requestBuilder.build(),
-                listener!!
-            )
+            awaitClose {
+                eventSource.close()
+            }
         }
     }
 }

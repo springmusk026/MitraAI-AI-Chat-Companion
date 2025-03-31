@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.jetbrains.kotlin.android) apply false
     id("com.google.dagger.hilt.android") version "2.51" apply false
     id("com.google.devtools.ksp") version "1.9.0-1.0.13" apply false
+    id("org.jetbrains.kotlin.plugin.serialization") version("1.6.10") apply false
 }
 
 allprojects {
@@ -11,6 +12,8 @@ allprojects {
         google()
         mavenCentral()
         maven { url = uri("https://jitpack.io") }
+        maven { url = uri("https://kotlin.bintray.com/kotlinx") }
+
     }
 }
 

@@ -6,6 +6,7 @@ import android.util.Log
 import androidx.room.Room
 import com.google.gson.Gson
 import com.mitra.ai.xyz.data.local.AppDatabase
+import com.mitra.ai.xyz.data.local.AppSettingsDao
 import com.mitra.ai.xyz.data.local.ChatDao
 import com.mitra.ai.xyz.data.local.MessageDao
 import com.mitra.ai.xyz.data.local.ProviderProfileDao
@@ -13,8 +14,10 @@ import com.mitra.ai.xyz.data.remote.OpenAIService
 import com.mitra.ai.xyz.data.remote.OpenAIServiceFactory
 import com.mitra.ai.xyz.data.remote.SSEInterceptor
 import com.mitra.ai.xyz.data.remote.SSEListener
+import com.mitra.ai.xyz.data.repository.AppSettingsRepositoryImpl
 import com.mitra.ai.xyz.data.repository.ChatRepositoryImpl
 import com.mitra.ai.xyz.data.repository.SettingsRepositoryImpl
+import com.mitra.ai.xyz.domain.repository.AppSettingsRepository
 import com.mitra.ai.xyz.domain.repository.ChatRepository
 import com.mitra.ai.xyz.domain.repository.SettingsRepository
 import dagger.Module
@@ -29,6 +32,7 @@ import retrofit2.converter.gson.GsonConverterFactory
 import javax.inject.Named
 import javax.inject.Singleton
 import java.util.concurrent.TimeUnit
+import kotlinx.serialization.json.Json
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -71,6 +75,10 @@ object AppModule {
 
     @Provides
     @Singleton
+    fun provideAppSettingsDao(db: AppDatabase): AppSettingsDao = db.appSettingsDao()
+
+    @Provides
+    @Singleton
     fun provideOkHttpClient(): OkHttpClient {
         return OkHttpClient.Builder()
             .addInterceptor(HttpLoggingInterceptor().apply {
@@ -104,19 +112,22 @@ object AppModule {
     fun provideSSEClient(okHttpClient: OkHttpClient): OkHttpClient {
         return okHttpClient.newBuilder()
             .addInterceptor(HttpLoggingInterceptor().apply {
-                level = HttpLoggingInterceptor.Level.BODY
+                level = HttpLoggingInterceptor.Level.BASIC
             })
-            .addInterceptor(SSEInterceptor(object : SSEListener {
-                override fun onEvent(data: String) {
-                    // This will be overridden by the repository
-                }
-                override fun onFailure(t: Throwable) {
-                    // This will be overridden by the repository
-                }
-                override fun onComplete() {
-                    // This will be overridden by the repository
-                }
-            }))
+            .addInterceptor { chain ->
+                val request = chain.request()
+                chain.proceed(
+                    request.newBuilder()
+                        .addHeader("Accept", "text/event-stream")
+                        .addHeader("Cache-Control", "no-cache")
+                        .addHeader("Connection", "keep-alive")
+                        .build()
+                )
+            }
+            .readTimeout(0, TimeUnit.MILLISECONDS)  // No timeout for reading
+            .writeTimeout(30, TimeUnit.SECONDS)
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .retryOnConnectionFailure(true)
             .build()
     }
 
@@ -145,6 +156,14 @@ object AppModule {
 
     @Provides
     @Singleton
+    fun provideAppSettingsRepository(
+        appSettingsDao: AppSettingsDao
+    ): AppSettingsRepository {
+        return AppSettingsRepositoryImpl(appSettingsDao)
+    }
+
+    @Provides
+    @Singleton
     fun provideChatRepository(
         openAIService: OpenAIService,
         settingsRepository: SettingsRepository,
@@ -163,5 +182,13 @@ object AppModule {
             sseClient,
             openAIServiceFactory
         )
+    }
+
+    @Provides
+    @Singleton
+    fun provideJson(): Json = Json {
+        ignoreUnknownKeys = true
+        isLenient = true
+        encodeDefaults = true
     }
 } 

@@ -28,4 +28,8 @@ interface ChatRepository {
     suspend fun deleteMessage(message: Message)
     
     fun sendMessage(content: String, chatId: String): Flow<Message>
+
+    suspend fun clearChats()
+    
+    suspend fun saveChat(chat: Chat, messages: List<Message>? = null)
 } 

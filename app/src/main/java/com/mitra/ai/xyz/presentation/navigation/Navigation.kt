@@ -9,11 +9,13 @@ import com.mitra.ai.xyz.presentation.chat.ChatScreen
 import com.mitra.ai.xyz.presentation.settings.SettingsScreen
 import com.mitra.ai.xyz.presentation.splash.SplashScreen
 import com.mitra.ai.xyz.presentation.splash.SplashViewModel
+import com.mitra.ai.xyz.presentation.settings.backup.BackupScreen
 
 sealed class Screen(val route: String) {
     object Splash : Screen("splash")
     object Chat : Screen("chat")
     object Settings : Screen("settings")
+    object Backup : Screen("backup")
 }
 
 @Composable
@@ -48,7 +50,16 @@ fun AppNavigation(
             SettingsScreen(
                 onNavigateBack = {
                     navController.popBackStack()
+                },
+                onNavigate = { route ->
+                    navController.navigate(route)
                 }
+            )
+        }
+
+        composable(Screen.Backup.route) {
+            BackupScreen(
+                onNavigateBack = { navController.popBackStack() }
             )
         }
     }

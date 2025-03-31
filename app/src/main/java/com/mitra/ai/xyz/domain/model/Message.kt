@@ -2,6 +2,7 @@ package com.mitra.ai.xyz.domain.model
 
 import androidx.room.*
 import java.util.*
+import kotlinx.serialization.Serializable
 
 @Entity(
     tableName = "messages",
@@ -17,6 +18,7 @@ import java.util.*
         Index("chatId")
     ]
 )
+@Serializable
 data class Message(
     @PrimaryKey
     val id: String = UUID.randomUUID().toString(),

@@ -4,17 +4,21 @@ import android.app.Activity
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.*
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.text.TextStyle
 import androidx.core.view.WindowCompat
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.mitra.ai.xyz.domain.model.AppSettings
+import com.mitra.ai.xyz.presentation.settings.SettingsViewModel
 
 private val LightColorScheme = lightColorScheme(
     primary = md_theme_light_primary,
@@ -80,18 +84,55 @@ private val DarkColorScheme = darkColorScheme(
     scrim = md_theme_dark_scrim,
 )
 
+private fun Typography.scale(factor: Float): Typography = Typography(
+    displayLarge = displayLarge.scale(factor),
+    displayMedium = displayMedium.scale(factor),
+    displaySmall = displaySmall.scale(factor),
+    headlineLarge = headlineLarge.scale(factor),
+    headlineMedium = headlineMedium.scale(factor),
+    headlineSmall = headlineSmall.scale(factor),
+    titleLarge = titleLarge.scale(factor),
+    titleMedium = titleMedium.scale(factor),
+    titleSmall = titleSmall.scale(factor),
+    bodyLarge = bodyLarge.scale(factor),
+    bodyMedium = bodyMedium.scale(factor),
+    bodySmall = bodySmall.scale(factor),
+    labelLarge = labelLarge.scale(factor),
+    labelMedium = labelMedium.scale(factor),
+    labelSmall = labelSmall.scale(factor)
+)
+
+private fun TextStyle.scale(factor: Float): TextStyle = copy(
+    fontSize = fontSize * factor,
+    lineHeight = lineHeight * factor
+)
+
 @Composable
 fun MitraAiTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
+    val viewModel: SettingsViewModel = hiltViewModel()
+    val settingsState by viewModel.settingsState.collectAsState()
+    
+    // Determine the theme mode based on settings
+    val effectiveDarkTheme = when (settingsState.appSettings.themeMode) {
+        AppSettings.ThemeMode.LIGHT -> false
+        AppSettings.ThemeMode.DARK -> true
+        AppSettings.ThemeMode.SYSTEM -> isSystemInDarkTheme()
+    }
+
+    // Apply font scaling
+    val fontScale = settingsState.appSettings.fontScale
+    val scaledTypography = Typography.scale(fontScale)
+
     val colorScheme = when {
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
             val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+            if (effectiveDarkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
-        darkTheme -> DarkColorScheme
+        effectiveDarkTheme -> DarkColorScheme
         else -> LightColorScheme
     }
 
@@ -106,15 +147,15 @@ fun MitraAiTheme(
             
             // Handle system bars appearance
             WindowCompat.getInsetsController(window, view).apply {
-                isAppearanceLightStatusBars = !darkTheme
-                isAppearanceLightNavigationBars = !darkTheme
+                isAppearanceLightStatusBars = !effectiveDarkTheme
+                isAppearanceLightNavigationBars = !effectiveDarkTheme
             }
         }
     }
 
     MaterialTheme(
         colorScheme = colorScheme,
-        typography = Typography,
+        typography = scaledTypography,
         content = content
     )
 }

@@ -20,6 +20,14 @@ import androidx.compose.ui.unit.dp
 import com.mitra.ai.xyz.domain.model.Message
 import java.text.SimpleDateFormat
 import java.util.*
+import dev.jeziellago.compose.markdowntext.MarkdownText
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
+import com.mitra.ai.xyz.ui.theme.SpaceGrotesk
 
 @Composable
 fun MessageBubble(
@@ -36,6 +44,12 @@ fun MessageBubble(
         message.content.count { it == '\n' } > maxCollapsedLines - 1 ||
         message.content.length > 200
     }
+
+    // Create a custom style that explicitly includes SpaceGrotesk
+    val messageStyle = MaterialTheme.typography.bodyLarge.copy(
+        color = MaterialTheme.colorScheme.onSurface,
+        fontFamily = SpaceGrotesk
+    )
 
     Column(
         modifier = Modifier
@@ -66,22 +80,39 @@ fun MessageBubble(
             tonalElevation = if (message.isUser) 0.dp else 2.dp
         ) {
             Column(modifier = Modifier.animateContentSize()) {
-                Text(
-                    text = message.content,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = when {
-                        message.isError -> MaterialTheme.colorScheme.onErrorContainer
-                        message.isUser -> MaterialTheme.colorScheme.onPrimary
-                        else -> MaterialTheme.colorScheme.onSurface
-                    },
-                    maxLines = if (!isExpanded && shouldCollapse) maxCollapsedLines else Int.MAX_VALUE,
-                    modifier = Modifier.padding(
-                        start = 16.dp,
-                        end = 16.dp,
-                        top = 8.dp,
-                        bottom = if (shouldCollapse) 4.dp else 8.dp
+                if (message.isUser) {
+                    Text(
+                        text = message.content,
+                        style = messageStyle.copy(
+                            color = MaterialTheme.colorScheme.onPrimary
+                        ),
+                        maxLines = if (!isExpanded && shouldCollapse) maxCollapsedLines else Int.MAX_VALUE,
+                        modifier = Modifier.padding(
+                            start = 16.dp,
+                            end = 16.dp,
+                            top = 8.dp,
+                            bottom = if (shouldCollapse) 4.dp else 8.dp
+                        )
                     )
-                )
+                } else {
+                    Surface(
+                        modifier = Modifier.padding(
+                            start = 16.dp,
+                            end = 16.dp,
+                            top = 8.dp,
+                            bottom = if (shouldCollapse) 4.dp else 8.dp
+                        ),
+                        color = Color.Transparent
+                    ) {
+                        SelectionContainer {
+                            MarkdownText(
+                                markdown = message.content,
+                                style = messageStyle,
+                                maxLines = if (!isExpanded && shouldCollapse) maxCollapsedLines else Int.MAX_VALUE
+                            )
+                        }
+                    }
+                }
 
                 if (shouldCollapse) {
                     ExpandCollapseButton(

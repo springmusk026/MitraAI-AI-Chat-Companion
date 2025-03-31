@@ -4,6 +4,7 @@ plugins {
     kotlin("kapt")
     id("com.google.dagger.hilt.android")
     id("com.google.devtools.ksp")
+    id("org.jetbrains.kotlin.plugin.serialization")
 }
 
 android {
@@ -25,7 +26,7 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -100,7 +101,7 @@ dependencies {
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
     
     // Markdown
-    implementation("com.github.jeziellago:compose-markdown:0.3.7")
+    implementation("com.github.jeziellago:compose-markdown:0.3.6")
     
     // Testing
     testImplementation(libs.junit)
@@ -112,6 +113,9 @@ dependencies {
     debugImplementation(libs.androidx.ui.test.manifest)
 
     implementation("org.burnoutcrew.composereorderable:reorderable:0.9.6")
+
+    // Serialization
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
 }
 
 // Allow references to generated code

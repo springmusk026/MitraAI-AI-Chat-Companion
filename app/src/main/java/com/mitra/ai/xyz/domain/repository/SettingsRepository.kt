@@ -2,6 +2,7 @@ package com.mitra.ai.xyz.domain.repository
 
 import com.mitra.ai.xyz.domain.model.AiProviderConfig
 import com.mitra.ai.xyz.domain.model.AiProviderProfile
+import com.mitra.ai.xyz.domain.model.AppSettings
 import kotlinx.coroutines.flow.Flow
 
 data class ProviderConfig(
@@ -27,4 +28,9 @@ interface SettingsRepository {
     suspend fun updateProviderProfile(profile: AiProviderProfile)
     suspend fun deleteProviderProfile(profile: AiProviderProfile)
     suspend fun getActiveProfile(): AiProviderProfile?
+    suspend fun clearProviderProfiles()
+    
+    // App Settings
+    fun getAppSettings(): Flow<AppSettings>
+    suspend fun updateAppSettings(settings: AppSettings)
 }
