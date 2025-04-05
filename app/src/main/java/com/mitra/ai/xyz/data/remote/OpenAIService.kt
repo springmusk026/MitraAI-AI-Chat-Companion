@@ -64,9 +64,20 @@ interface OpenAIService {
 
     data class Model(
         val id: String,
-        val created: Long,
+        @SerializedName("created")
+        val createdAt: String,
         val owned_by: String,
-        @SerializedName("object") val objectType: String
+        @SerializedName("object") val objectType: String,
+        val base_model: String? = null,
+        val organization: String? = null,
+        val task: String? = null,
+        val context_length: Long? = null,
+        val languages: List<String>? = null,
+        val parameters: Long? = null,
+        val parameters_str: String? = null,
+        val tier: String? = null,
+        val license: String? = null,
+        val is_fine_tunable: Boolean? = null
     )
 
     // Streaming response data classes

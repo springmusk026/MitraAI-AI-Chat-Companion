@@ -1,6 +1,7 @@
 package com.mitra.ai.xyz.data.repository
 
 import android.content.Context
+import android.util.Log
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
@@ -104,20 +105,39 @@ class SettingsRepositoryImpl @Inject constructor(
             val response = service.listModels(
                 authorization = "Bearer $apiKey"
             )
+            
+            // Validate response and data
+            if (response.data == null || response.data.isEmpty()) {
+                Log.w("SettingsRepository", "No models returned from API")
+                return getDefaultModels()
+            }
+
+            // Filter and sort models
             response.data
+                .filterNotNull() // Remove any null entries
+                .filter { it.id.isNotBlank() } // Remove empty model IDs
                 .map { it.id }
+                .distinct() // Remove duplicates
                 .sorted()
+                .also { models ->
+                    if (models.isEmpty()) {
+                        Log.w("SettingsRepository", "No valid models found in API response")
+                        return getDefaultModels()
+                    }
+                }
         } catch (e: Exception) {
-            // If API call fails, return default models
-            listOf(
-                "gpt-3.5-turbo",
-                "gpt-3.5-turbo-16k",
-                "gpt-4",
-                "gpt-4-turbo-preview",
-                "gpt-4-32k"
-            )
+            Log.e("SettingsRepository", "Error fetching models", e)
+            getDefaultModels()
         }
     }
+
+    private fun getDefaultModels(): List<String> = listOf(
+        "gpt-3.5-turbo",
+        "gpt-3.5-turbo-16k",
+        "gpt-4",
+        "gpt-4-turbo-preview",
+        "gpt-4-32k"
+    )
 
     override fun getProviderProfiles(): Flow<List<AiProviderProfile>> {
         return providerProfileDao.getProviderProfiles()
