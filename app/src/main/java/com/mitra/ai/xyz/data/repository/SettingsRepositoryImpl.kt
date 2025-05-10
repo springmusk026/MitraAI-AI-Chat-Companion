@@ -145,12 +145,29 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun addProviderProfile(profile: AiProviderProfile) {
         withContext(Dispatchers.IO) {
+            // First, deactivate all existing profiles
+            providerProfileDao.getProviderProfiles().first().forEach { existingProfile ->
+                if (existingProfile.isActive) {
+                    providerProfileDao.updateProfile(existingProfile.copy(isActive = false))
+                }
+            }
+            
+            // Then insert the new profile
             providerProfileDao.insertProfile(profile)
+            
+            // Finally, ensure the new profile is active
+            if (profile.isActive) {
+                providerProfileDao.setActiveProfile(profile.id)
+            }
         }
     }
 
     override suspend fun updateProviderProfile(profile: AiProviderProfile) {
         withContext(Dispatchers.IO) {
+            // If this profile is being set as active, deactivate others
+            if (profile.isActive) {
+                providerProfileDao.setActiveProfile(profile.id)
+            }
             providerProfileDao.updateProfile(profile)
         }
     }

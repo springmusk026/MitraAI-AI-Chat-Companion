@@ -20,14 +20,14 @@ import androidx.compose.ui.unit.dp
 import com.mitra.ai.xyz.domain.model.Message
 import java.text.SimpleDateFormat
 import java.util.*
-import dev.jeziellago.compose.markdowntext.MarkdownText
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
-import com.mitra.ai.xyz.ui.theme.SpaceGrotesk
+import com.mitra.ai.xyz.ui.markdown.MarkdownParser
+import androidx.compose.ui.text.TextLayoutResult
 
 @Composable
 fun MessageBubble(
@@ -45,11 +45,12 @@ fun MessageBubble(
         message.content.length > 200
     }
 
-    // Create a custom style that explicitly includes SpaceGrotesk
     val messageStyle = MaterialTheme.typography.bodyLarge.copy(
-        color = MaterialTheme.colorScheme.onSurface,
-        fontFamily = SpaceGrotesk
+        color = MaterialTheme.colorScheme.onSurface
     )
+
+    // Create MarkdownParser instance
+    val markdownParser = remember { MarkdownParser() }
 
     Column(
         modifier = Modifier
@@ -105,8 +106,8 @@ fun MessageBubble(
                         color = Color.Transparent
                     ) {
                         SelectionContainer {
-                            MarkdownText(
-                                markdown = message.content,
+                            Text(
+                                text = markdownParser.parse(message.content),
                                 style = messageStyle,
                                 maxLines = if (!isExpanded && shouldCollapse) maxCollapsedLines else Int.MAX_VALUE
                             )

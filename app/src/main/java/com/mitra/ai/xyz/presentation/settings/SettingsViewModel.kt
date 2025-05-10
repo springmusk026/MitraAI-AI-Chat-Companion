@@ -87,6 +87,7 @@ class SettingsViewModel @Inject constructor(
                     baseUrl = baseUrl,
                     apiKey = apiKey,
                     model = model,
+                    isActive = true,
                     order = _settingsState.value.profiles.size
                 )
                 settingsRepository.addProviderProfile(newProfile)
